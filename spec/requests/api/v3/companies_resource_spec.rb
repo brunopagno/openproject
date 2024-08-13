@@ -26,8 +26,8 @@
 # See docs/COPYRIGHT.rdoc for more details.
 #++
 
-require 'spec_helper'
-require 'rack/test'
+require "spec_helper"
+require "rack/test"
 
 # For the sake of this coding exercise, a company is a very simple structure that only has
 # * an id
@@ -79,8 +79,7 @@ require 'rack/test'
 #
 # assuming that every share is active, the owning users of child would be A and B.
 
-# rubocop:disable RSpec/IndexedLet
-RSpec.describe 'API v3 companies resource', content_type: :json do
+RSpec.describe "API v3 companies resource", content_type: :json do
   include Rack::Test::Methods
   include API::V3::Utilities::PathHelper
 
@@ -90,7 +89,7 @@ RSpec.describe 'API v3 companies resource', content_type: :json do
     create(:admin)
   end
   let(:owner) do
-    create(:user, firstname: 'The', lastname: 'owner')
+    create(:user, firstname: "The", lastname: "owner")
   end
   let(:company) do
     create(:company, owner:)
@@ -100,44 +99,44 @@ RSpec.describe 'API v3 companies resource', content_type: :json do
     create(:user)
   end
 
-  describe 'GET /api/v3/companies/:id' do
+  describe "GET /api/v3/companies/:id" do
     let(:path) { api_v3_paths.company(company.id) }
 
     before do
       get path
     end
 
-    it 'returns 200 OK' do
+    it "returns 200 OK" do
       expect(subject.status)
         .to be(200)
     end
 
-    it 'returns the company' do
+    it "returns the company" do
       expect(subject.body)
-        .to be_json_eql('Company'.to_json)
-        .at_path('_type')
+        .to be_json_eql("Company".to_json)
+        .at_path("_type")
 
       expect(subject.body)
         .to be_json_eql(company.id.to_json)
-        .at_path('id')
+        .at_path("id")
 
       expect(subject.body)
         .to be_json_eql(company.name.to_json)
-        .at_path('name')
+        .at_path("name")
     end
 
-    it 'references the owning users' do
+    it "references the owning users" do
       # References the owner of the company
       expect(subject.body)
         .to be_json_eql(api_v3_paths.user(owner.id).to_json)
-              .at_path('_links/owningUsers/0/href')
+              .at_path("_links/owningUsers/0/href")
 
       expect(subject.body)
         .to be_json_eql(owner.name.to_json)
-              .at_path('_embedded/owningUsers/0/name')
+              .at_path("_embedded/owningUsers/0/name")
     end
 
-    context 'with a web of companies' do
+    context "with a web of companies" do
       let(:parent_company1_2_1) do
         create(:company, owner: owner_pc1_2_1)
       end
@@ -220,7 +219,7 @@ RSpec.describe 'API v3 companies resource', content_type: :json do
       let(:owner_pc1_2_2) { create(:user) }
 
       let(:chairman) do
-        create(:user, firstname: 'Big', lastname: 'Boss')
+        create(:user, firstname: "Big", lastname: "Boss")
       end
 
       let(:expected_owners) do
@@ -229,32 +228,32 @@ RSpec.describe 'API v3 companies resource', content_type: :json do
          owner_pc2_3]
       end
 
-      it 'references the owning_users (only those not owners of a company owned actively by another company)' do
+      it "references the owning_users (only those not owners of a company owned actively by another company)" do
         # References the owner of the holding
         expect(subject.body)
-          .to have_json_path('_links/owningUsers')
+          .to have_json_path("_links/owningUsers")
 
-        expect(JSON.parse(subject.body).dig('_links', 'owningUsers').pluck('href'))
+        expect(JSON.parse(subject.body).dig("_links", "owningUsers").pluck("href"))
           .to match_array(expected_owners.map { |o| api_v3_paths.user(o.id) })
 
         expect(subject.body)
-          .to have_json_path('_embedded/owningUsers')
+          .to have_json_path("_embedded/owningUsers")
 
-        expect(JSON.parse(subject.body).dig('_embedded', 'owningUsers').pluck('id'))
+        expect(JSON.parse(subject.body).dig("_embedded", "owningUsers").pluck("id"))
           .to match_array(expected_owners.map(&:id))
       end
     end
 
-    context 'if querying a non existing company' do
+    context "if querying a non existing company" do
       let(:path) { api_v3_paths.company(company.id + 1) }
 
-      it_behaves_like 'not found'
+      it_behaves_like "not found"
     end
 
-    context 'without begin logged in', with_settings: { login_required?: true } do
+    context "without begin logged in", with_settings: { login_required?: true } do
       current_user { nil }
 
-      it_behaves_like 'unauthenticated access'
+      it_behaves_like "unauthenticated access"
     end
   end
 end
