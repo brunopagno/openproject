@@ -184,6 +184,10 @@ module API
             "#{project(id)}/categories"
           end
 
+          def self.company(id)
+            "#{root}/companies/#{id}"
+          end
+
           def self.configuration
             "#{root}/configuration"
           end
