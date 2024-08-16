@@ -132,8 +132,8 @@ RSpec.describe "API v3 companies resource", content_type: :json do
               .at_path("_links/owningUsers/0/href")
 
       expect(subject.body)
-        .to be_json_eql(owner.name.to_json)
-              .at_path("_embedded/owningUsers/0/name")
+        .to be_json_eql(owner.firstname.to_json)
+              .at_path("_embedded/owningUsers/0/firstname")
     end
 
     context "with a web of companies" do
