@@ -52,5 +52,37 @@ RSpec.describe Company do
         expect(subject.owning_users).to eq([owner])
       end
     end
+
+    describe "when there is a cyclic hierarchy" do
+      context "and there is no other owner" do
+        let(:parent_company) { create(:company) }
+        let(:owner) { create(:user) }
+
+        before do
+          Share.create!(parent: parent_company, child: subject)
+          Share.create!(parent: subject, child: parent_company)
+        end
+
+        it "returns an empty value" do
+          expect(subject.owning_users).to eq([])
+        end
+      end
+
+      context "and there is another owner" do
+        let(:parent_company1) { create(:company) }
+        let(:parent_company2) { create(:company) }
+        let(:owner) { create(:user) }
+
+        before do
+          Share.create!(parent: parent_company1, child: subject)
+          Share.create!(parent: parent_company2, child: subject)
+          Share.create!(parent: subject, child: parent_company1)
+        end
+
+        it "returns the owners of all parent companies" do
+          expect(subject.owning_users).to eq([parent_company2.owner])
+        end
+      end
+    end
   end
 end

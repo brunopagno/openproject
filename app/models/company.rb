@@ -15,9 +15,11 @@ class Company < ApplicationRecord
   # children of owned shares are child companies
   has_many :child_companies, through: :owned_shares, source: :child
 
-  def owning_users
+  def owning_users(visited = [])
     return [owner] if parent_companies.empty?
+    return [] if visited.include?(id)
 
-    parent_companies.map(&:owning_users).flatten
+    visited << id
+    parent_companies.map { |parent| parent.owning_users(visited) }.flatten
   end
 end
