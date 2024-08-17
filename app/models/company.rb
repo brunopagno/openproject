@@ -15,15 +15,36 @@ class Company < ApplicationRecord
   # children of owned shares are child companies
   has_many :child_companies, through: :owned_shares, source: :child
 
+  #   def owning_users
+  #     @owning_users ||= fetch_owning_users
+  #   end
+  #
+  #   def fetch_owning_users(visited = [])
+  #     return [owner] if parent_companies.empty?
+  #     return [] if visited.include?(id)
+  #
+  #     visited << id
+  #     parent_companies.map { |parent| parent.fetch_owning_users(visited) }.flatten
+  #   end
+
   def owning_users
-    @owning_users ||= fetch_owning_users
-  end
+    stack = [self]
+    visited = []
+    result = []
 
-  def fetch_owning_users(visited = [])
-    return [owner] if parent_companies.empty?
-    return [] if visited.include?(id)
+    until stack.empty?
+      current = stack.pop
+      next if visited.include?(current.id)
 
-    visited << id
-    parent_companies.map { |parent| parent.fetch_owning_users(visited) }.flatten
+      visited << current.id
+
+      if current.parent_companies.empty?
+        result << current.owner
+      else
+        stack.concat(current.parent_companies)
+      end
+    end
+
+    result
   end
 end
