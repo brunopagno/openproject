@@ -139,7 +139,7 @@ lefthook-local.yml
 frontend/package-lock.json
 
 # Testing and nextcloud infrastructure
-acme.json
+/docker/dev/tls/certificates/
 .env.test
 
 # Generated seeders crowdin source file
