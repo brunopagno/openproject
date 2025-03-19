@@ -5,15 +5,21 @@ import {
 import { TurboRequestsService } from 'core-app/core/turbo/turbo-requests.service';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 
+enum AnchorType {
+  Comment = 'comment',
+  Activity = 'activity',
+}
+
 interface CustomEventWithIdParam extends Event {
   params:{
     id:string;
+    anchorName:AnchorType;
   };
 }
 
 export default class IndexController extends Controller {
   static values = {
-    updateStreamsUrl: String,
+    updateStreamsPath: String,
     sorting: String,
     pollingIntervalInMs: Number,
     filter: String,
@@ -35,7 +41,7 @@ export default class IndexController extends Controller {
 
   declare readonly hasFormSubmitButtonTarget:boolean;
 
-  declare updateStreamsUrlValue:string;
+  declare updateStreamsPathValue:string;
   declare sortingValue:string;
   declare lastServerTimestampValue:string;
   declare intervallId:number;
@@ -77,6 +83,7 @@ export default class IndexController extends Controller {
 
     this.setLatestKnownChangesetUpdatedAt();
     this.startPolling();
+    this.setCssClasses();
   }
 
   disconnect() {
@@ -197,7 +204,8 @@ export default class IndexController extends Controller {
   }
 
   private prepareUpdateStreamsUrl():string {
-    const url = new URL(this.updateStreamsUrlValue);
+    const baseUrl = window.location.origin;
+    const url = new URL(this.updateStreamsPathValue, baseUrl);
     url.searchParams.set('sortBy', this.sortingValue);
     url.searchParams.set('filter', this.filterValue);
     url.searchParams.set('last_update_timestamp', this.lastServerTimestampValue);
@@ -350,17 +358,19 @@ export default class IndexController extends Controller {
   }
 
   private handleInitialScroll() {
-    if (window.location.hash.includes('#activity-')) {
-      const activityId = window.location.hash.replace('#activity-', '');
-      this.scrollToActivity(activityId);
+    const anchorTypeRegex = new RegExp(`#(${AnchorType.Comment}|${AnchorType.Activity})-(\\d+)`, 'i');
+    const activityIdMatch = window.location.hash.match(anchorTypeRegex); // Ex. [ "#comment-80", "comment", "80" ]
+
+    if (activityIdMatch && activityIdMatch.length === 3) {
+      this.scrollToActivity(activityIdMatch[1] as AnchorType, activityIdMatch[2]);
     } else if (this.sortingValue === 'asc' && (!this.isMobile() || this.isWithinNotificationCenter())) {
       this.scrollToBottom();
     }
   }
 
-  private tryScroll(activityId:string, attempts:number, maxAttempts:number) {
+  private tryScroll(activityAnchorName:AnchorType, activityId:string, attempts:number, maxAttempts:number) {
     const scrollableContainer = this.getScrollableContainer();
-    const activityElement = document.getElementById(`activity-anchor-${activityId}`);
+    const activityElement = this.getActivityAnchorElement(activityAnchorName, activityId);
     const topPadding = 70;
 
     if (activityElement && scrollableContainer) {
@@ -374,16 +384,16 @@ export default class IndexController extends Controller {
         scrollableContainer.scrollTop = relativeTop - topPadding;
       }, 50);
     } else if (attempts < maxAttempts) {
-      setTimeout(() => this.tryScroll(activityId, attempts + 1, maxAttempts), 1000);
+      setTimeout(() => this.tryScroll(activityAnchorName, activityId, attempts + 1, maxAttempts), 1000);
     }
   }
 
-  private scrollToActivity(activityId:string) {
+  private scrollToActivity(activityAnchorName:AnchorType, activityId:string) {
     const maxAttempts = 20; // wait max 20 seconds for the activity to be rendered
-    this.tryScroll(activityId, 0, maxAttempts);
+    this.tryScroll(activityAnchorName, activityId, 0, maxAttempts);
   }
 
-  private tryScrollToBottom(attempts:number = 0, maxAttempts:number = 20) {
+  private tryScrollToBottom(attempts:number = 0, maxAttempts:number = 20, behavior:ScrollBehavior = 'smooth') {
     const scrollableContainer = this.getScrollableContainer();
 
     if (!scrollableContainer) {
@@ -405,7 +415,7 @@ export default class IndexController extends Controller {
         observer.disconnect();
         scrollableContainer.scrollTo({
           top: scrollableContainer.scrollHeight,
-          behavior: 'smooth',
+          behavior,
         });
       }, 100);
     });
@@ -418,7 +428,7 @@ export default class IndexController extends Controller {
   }
 
   private scrollToBottom() {
-    this.tryScrollToBottom();
+    this.tryScrollToBottom(0, 20, 'auto');
   }
 
   setFilterToOnlyComments() { this.filterValue = 'only_comments'; }
@@ -428,10 +438,23 @@ export default class IndexController extends Controller {
   setAnchor(event:CustomEventWithIdParam) {
     // native anchor scroll is causing positioning issues
     event.preventDefault();
-    const activityId = event.params.id;
 
-    this.scrollToActivity(activityId);
-    window.location.hash = `#activity-${activityId}`;
+    const activityId = event.params.id;
+    const anchorName = event.params.anchorName;
+
+    // not using the scrollToActivity method here as it is causing flickering issues
+    // in case of a setAnchor click, we can go for a direct scroll approach
+    const scrollableContainer = this.getScrollableContainer();
+    const activityElement = this.getActivityAnchorElement(anchorName, activityId);
+
+    if (scrollableContainer && activityElement) {
+      scrollableContainer.scrollTo({
+        top: activityElement.offsetTop - 90,
+        behavior: 'smooth',
+      });
+    }
+
+    window.location.hash = `#${anchorName}-${activityId}`;
   }
 
   private getCkEditorElement():HTMLElement | null {
@@ -460,8 +483,15 @@ export default class IndexController extends Controller {
     return document.querySelector('.tabcontent') as HTMLElement;
   }
 
+  private getActivityAnchorElement(activityAnchorName:AnchorType, activityId:string):HTMLElement | null {
+    return document.querySelector(`[data-anchor-${activityAnchorName}-id="${activityId}"]`);
+  }
+
   // Code Maintenance: Get rid of this JS based view port checks when activities are rendered in fully primierized activity tab in all contexts
   private isMobile():boolean {
+    if (this.isWithinNotificationCenter() || this.isWithinSplitScreen()) {
+      return window.innerWidth < 1013;
+    }
     return window.innerWidth < 1279;
   }
 
@@ -473,11 +503,25 @@ export default class IndexController extends Controller {
     return window.location.pathname.includes('work_packages/details');
   }
 
+  private setCssClasses() {
+    if (this.isWithinNotificationCenter()) {
+      this.element.classList.add('work-packages-activities-tab-index-component--within-notification-center');
+    }
+    if (this.isWithinSplitScreen()) {
+      this.element.classList.add('work-packages-activities-tab-index-component--within-split-screen');
+    }
+  }
+
   private addEventListenersToCkEditorInstance() {
     this.onSubmitBound = () => { void this.onSubmit(); };
     this.adjustMarginBound = () => { void this.adjustJournalContainerMargin(); };
     this.onBlurEditorBound = () => { void this.onBlurEditor(); };
-    this.onFocusEditorBound = () => { void this.onFocusEditor(); };
+    this.onFocusEditorBound = () => {
+      void this.onFocusEditor();
+      if (this.isMobile()) {
+        void this.scrollInputContainerIntoView(200);
+      }
+    };
 
     const editorElement = this.getCkEditorElement();
     if (editorElement) {
@@ -530,21 +574,14 @@ export default class IndexController extends Controller {
     }
   }
 
-  private scrollInputContainerIntoView(timeout:number = 0) {
+  private scrollInputContainerIntoView(timeout:number = 0, behavior:ScrollBehavior = 'smooth') {
     const inputContainer = this.getInputContainer() as HTMLElement;
     setTimeout(() => {
       if (inputContainer) {
-        if (this.sortingValue === 'desc') {
-          inputContainer.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          });
-        } else {
-          inputContainer.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-          });
-        }
+        inputContainer.scrollIntoView({
+          behavior,
+          block: this.sortingValue === 'desc' ? 'nearest' : 'start',
+        });
       }
     }, timeout);
   }
@@ -559,9 +596,7 @@ export default class IndexController extends Controller {
     this.addEventListenersToCkEditorInstance();
 
     if (this.isMobile()) {
-      // timeout amount tested on mobile devices for best possible user experience
-      this.scrollInputContainerIntoView(100); // first bring the input container fully into view (before focusing!)
-      this.focusEditor(400); // wait before focusing to avoid interference with the auto scroll
+      this.focusEditor(0);
     } else if (this.sortingValue === 'asc' && journalsContainerAtBottom) {
       // scroll to (new) bottom if sorting is ascending and journals container was already at bottom before showing the form
       this.scrollJournalContainer(true);
@@ -581,18 +616,39 @@ export default class IndexController extends Controller {
   quote(event:Event) {
     event.preventDefault();
     const target = event.currentTarget as HTMLElement;
+    const userId = target.dataset.userIdParam as string;
     const userName = target.dataset.userNameParam as string;
+    const textWrote = target.dataset.textWroteParam as string;
     const content = target.dataset.contentParam as string;
 
-    this.openEditorWithInitialData(this.quotedText(content, userName));
+    const quotedText = this.quotedText(content, userId, userName, textWrote);
+    const formVisible = !this.formRowTarget.classList.contains('d-none');
+    if (formVisible) {
+      this.insertQuoteOnExistingEditor(quotedText);
+    } else {
+      this.openEditorWithInitialData(quotedText);
+    }
   }
 
-  private quotedText(rawComment:string, userName:string) {
+  private quotedText(rawComment:string, userId:string, userName:string, textWrote:string) {
     const quoted = rawComment.split('\n')
       .map((line:string) => `\n> ${line}`)
       .join('');
 
-    return `${userName}\n${quoted}`;
+    // if we ever change CKEditor or how @mentions work this will break
+    return `<mention class="mention" data-id="${userId}" data-type="user" data-text="@${userName}">@${userName}</mention> ${textWrote}:\n\n${quoted}`;
+  }
+
+  insertQuoteOnExistingEditor(quotedText:string) {
+    const ckEditorInstance = this.getCkEditorInstance();
+    if (ckEditorInstance) {
+      const editorData = ckEditorInstance.getData({ trim: false });
+      if (editorData.endsWith('<br>') || editorData.endsWith('\n')) {
+        ckEditorInstance.setData(`${editorData}${quotedText}`);
+      } else {
+        ckEditorInstance.setData(`${editorData}\n\n${quotedText}`);
+      }
+    }
   }
 
   openEditorWithInitialData(quotedText:string) {
@@ -649,11 +705,11 @@ export default class IndexController extends Controller {
   }
 
   async onSubmit(event:Event | null = null) {
+    event?.preventDefault();
+
     if (this.saveInProgress === true) return;
 
     this.setFormSubmitInProgress(true);
-
-    event?.preventDefault();
 
     const formData = this.prepareFormData();
     void this.submitForm(formData)
@@ -673,6 +729,21 @@ export default class IndexController extends Controller {
 
     if (this.hasFormSubmitButtonTarget) {
       this.formSubmitButtonTarget.disabled = inProgress;
+    }
+
+    this.setCKEditorReadonlyMode(inProgress);
+  }
+
+  private setCKEditorReadonlyMode(disabled:boolean) {
+    const ckEditorInstance = this.getCkEditorInstance();
+    const editorLockID = 'work-packages-activities-tab-index-component';
+
+    if (ckEditorInstance) {
+      if (disabled) {
+        ckEditorInstance.enableReadOnlyMode(editorLockID);
+      } else {
+        ckEditorInstance.disableReadOnlyMode(editorLockID);
+      }
     }
   }
 

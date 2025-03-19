@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 #-- copyright
-# OpenProject is a project management system.
+# OpenProject is an open source project management software.
 # Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
 #
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
-# Copyright (C) 2006-2017 Jean-Philippe Lang
+# Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
@@ -26,7 +26,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 # See COPYRIGHT and LICENSE files for more details.
-# +
+#++
 
 module OpenIDConnect
   class JwtParser
@@ -38,8 +38,9 @@ module OpenIDConnect
       RS512
     ].freeze
 
-    def initialize(verify_audience: true, required_claims: [])
+    def initialize(verify_audience: true, verify_expiration: true, required_claims: [])
       @verify_audience = verify_audience
+      @verify_expiration = verify_expiration
       @required_claims = required_claims
     end
 
@@ -56,6 +57,7 @@ module OpenIDConnect
           true,
           {
             algorithm: alg,
+            verify_expiration: @verify_expiration,
             verify_aud: @verify_audience,
             aud: provider.client_id,
             required_claims: all_required_claims

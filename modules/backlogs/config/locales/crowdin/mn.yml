@@ -26,7 +26,7 @@ mn:
   activerecord:
     attributes:
       work_package:
-        position: "Байрлал"
+        position: "Байршил"
         story_points: "Гүйцэтгэлийн оноо"
         backlogs_work_package_type: "Backlog type"
     errors:
@@ -41,8 +41,8 @@ mn:
         sprint:
           cannot_end_before_it_starts: "Sprint cannot end before it starts."
   backlogs:
-    add_new_story: "New Story"
-    any: "any"
+    add_new_story: "Шинэ Түүх"
+    any: "ямар ч"
     backlog_settings: "Backlogs settings"
     burndown_graph: "Burndown Graph"
     card_paper_size: "Paper size for card printing"

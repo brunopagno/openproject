@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) the OpenProject GmbH
@@ -54,14 +56,13 @@ class Meeting < ApplicationRecord
   scope :templated, -> { where(template: true) }
   scope :not_templated, -> { where(template: false) }
 
-  scope :cancelled, -> { where(state: :cancelled) }
-  scope :not_cancelled, -> { where.not(id: cancelled) }
+  scope :not_cancelled, -> { where.not.cancelled }
 
   scope :not_recurring, -> { where(recurring_meeting_id: nil) }
-  scope :recurring, -> { where.not(id: not_recurring) }
+  scope :recurring, -> { where.not(recurring_meeting_id: nil) }
 
-  scope :from_tomorrow, -> { where(["start_time >= ?", Date.tomorrow.beginning_of_day]) }
-  scope :from_today, -> { where(["start_time >= ?", Time.zone.today.beginning_of_day]) }
+  scope :from_tomorrow, -> { where(start_time: Date.tomorrow.beginning_of_day..) }
+  scope :from_today, -> { where(start_time: Time.zone.today.beginning_of_day..) }
 
   scope :upcoming, -> { where("start_time + (interval '1 hour' * duration) >= ?", Time.current) }
   scope :past, -> { where("start_time + (interval '1 hour' * duration) < ?", Time.current) }
@@ -110,9 +111,10 @@ class Meeting < ApplicationRecord
 
   after_update :send_rescheduling_mail, if: -> { saved_change_to_start_time? || saved_change_to_duration? }
 
-  enum state: {
+  enum :state, {
     open: 0, # 0 -> default, leave values for future states between open and closed
-    scheduled: 1,
+    planned: 1,
+    in_progress: 3,
     cancelled: 4,
     closed: 5
   }
@@ -123,12 +125,16 @@ class Meeting < ApplicationRecord
 
   ##
   # Cache key for detecting changes to be shown to the user
-  def changed_hash
+  def changed_hash # rubocop:disable Metrics/AbcSize
     parts = Meeting
       .unscoped
       .where(id:)
-      .left_joins(:agenda_items, :sections)
-      .pick(MeetingAgendaItem.arel_table[:updated_at].maximum, MeetingSection.arel_table[:updated_at].maximum)
+      .left_joins(:agenda_items, :sections, agenda_items: :outcomes)
+      .pick(
+        MeetingAgendaItem.arel_table[:updated_at].maximum,
+        MeetingSection.arel_table[:updated_at].maximum,
+        MeetingOutcome.arel_table[:updated_at].maximum
+      )
 
     parts << lock_version
 
@@ -159,19 +165,13 @@ class Meeting < ApplicationRecord
     !!template
   end
 
-  def author=(user)
-    super
-    # Don't add the author as participant if we already have some through nested attributes
-    participants.build(user:, invited: true) if new_record? && participants.empty? && user
-  end
-
   # Returns true if user or current user is allowed to view the meeting
   def visible?(user = User.current)
     user.allowed_in_project?(:view_meetings, project)
   end
 
   def editable?(user = User.current)
-    open? && user.allowed_in_project?(:edit_meetings, project)
+    !closed? && user.allowed_in_project?(:edit_meetings, project)
   end
 
   def invited_or_attended_participants

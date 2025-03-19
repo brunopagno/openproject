@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) the OpenProject GmbH
@@ -35,10 +36,6 @@ class Queries::Meetings::Filters::RecurringFilter < Queries::Meetings::Filters::
 
   def human_name
     I18n.t("label_recurring_meeting_part_of")
-  end
-
-  def available?
-    OpenProject::FeatureDecisions.recurring_meetings_active?
   end
 
   def apply_to(query_scope)

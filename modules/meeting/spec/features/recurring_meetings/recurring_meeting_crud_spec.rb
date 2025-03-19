@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) the OpenProject GmbH
@@ -34,8 +36,7 @@ require_relative "../../support/pages/recurring_meeting/show"
 require_relative "../../support/pages/meetings/index"
 
 RSpec.describe "Recurring meetings CRUD",
-               :js,
-               with_flag: { recurring_meetings: true } do
+               :js do
   include Components::Autocompleter::NgSelectAutocompleteHelpers
 
   before_all do
@@ -82,67 +83,88 @@ RSpec.describe "Recurring meetings CRUD",
     login_as current_user
 
     # Assuming the first init job has run
-    RecurringMeetings::InitNextOccurrenceJob.perform_now(meeting)
+    RecurringMeetings::InitNextOccurrenceJob.perform_now(meeting, meeting.first_occurrence.to_time)
   end
 
   it "can delete a recurring meeting from the show page and return to the index page" do
     show_page.visit!
 
-    click_on "recurring-meeting-action-menu"
-
-    accept_confirm(I18n.t("text_are_you_sure")) do
-      click_on "Delete meeting series"
+    show_page.delete_meeting_series
+    retry_block do
+      show_page.within_modal "Delete meeting series" do
+        check "I understand that this deletion cannot be reversed", allow_label_click: true
+        click_on "Delete permanently"
+      end
     end
 
-    expect(page).to have_current_path meetings_path # check path
+    expect(page).to have_current_path project_meetings_path(project)
+
+    expect_flash(type: :success, message: "Successful deletion.")
+    show_page.expect_no_meeting date: "12/31/2024 01:30 PM"
   end
 
-  it "can use the 'Create from template' button" do
+  it "can use the 'Open' button" do
     show_page.visit!
 
-    show_page.create_from_template date: "01/07/2025 01:30 PM"
+    show_page.open date: "01/07/2025 01:30 PM"
     wait_for_reload
 
     expect(page).to have_current_path project_meeting_path(project, Meeting.last)
 
     show_page.visit!
 
-    show_page.expect_no_scheduled_meeting date: "01/07/2025 01:30 PM"
+    show_page.expect_no_planned_meeting date: "01/07/2025 01:30 PM"
     show_page.expect_open_meeting date: "01/07/2025 01:30 PM"
   end
 
-  it "can cancel an occurrence" do
+  it "can cancel an occurrence from the show page" do
     show_page.visit!
 
-    accept_confirm(I18n.t(:label_recurring_occurrence_delete_confirmation)) do
-      show_page.cancel_occurrence date: "12/31/2024 01:30 PM"
+    show_page.cancel_occurrence date: "12/31/2024 01:30 PM"
+    show_page.within_modal "Cancel meeting occurrence" do
+      click_on "Cancel occurrence"
     end
 
     expect_flash(type: :success, message: "Successful cancellation.")
 
-    expect(page).to have_current_path(show_page.project_path)
+    expect(page).to have_current_path(show_page.path)
 
     show_page.expect_no_open_meeting date: "12/31/2024 01:30 PM"
     show_page.expect_cancelled_meeting date: "12/31/2024 01:30 PM"
   end
 
+  it "can cancel a planned occurrence from the show page" do
+    show_page.visit!
+
+    show_page.cancel_occurrence date: "01/07/2025 01:30 PM"
+    show_page.within_modal "Cancel meeting occurrence" do
+      click_on "Cancel occurrence"
+    end
+
+    expect_flash(type: :success, message: "Successful cancellation.")
+
+    expect(page).to have_current_path(show_page.path)
+
+    show_page.expect_cancelled_meeting date: "01/07/2025 01:30 PM"
+  end
+
   it "can edit the details of a recurring meeting" do
     show_page.visit!
 
-    show_page.expect_subtitle text: "Every week on Tuesday at 01:30 PM, ends on 01/14/2025"
+    show_page.expect_subtitle text: "Every week on Tuesday at 01:30 PM (UTC), ends on 01/14/2025"
 
     show_page.edit_meeting_series
-    show_page.in_edit_dialog do
-      page.select("Daily", from: "Frequency")
+    show_page.within_modal "Edit Meeting" do
+      page.select("Every day", from: "Frequency")
       meetings_page.set_start_time "11:00"
-      page.select("a number of occurrences", from: "End series after")
+      page.select("a number of occurrences", from: "Meeting series ends")
       page.fill_in("Occurrences", with: "8")
 
       sleep 0.5
       click_link_or_button("Save")
     end
     wait_for_network_idle
-    show_page.expect_subtitle text: "Daily at 11:00 AM, ends on 01/07/2025"
+    show_page.expect_subtitle text: "Every day at 11:00 AM (UTC), ends on 01/07/2025"
   end
 
   it "shows the correct actions based on status" do
@@ -151,16 +173,39 @@ RSpec.describe "Recurring meetings CRUD",
     show_page.expect_open_meeting date: "12/31/2024 01:30 PM"
     show_page.expect_open_actions date: "12/31/2024 01:30 PM"
 
-    show_page.expect_scheduled_meeting date: "01/07/2025 01:30 PM"
-    show_page.expect_scheduled_actions date: "01/07/2025 01:30 PM"
+    show_page.expect_planned_meeting date: "01/07/2025 01:30 PM"
+    show_page.expect_planned_actions date: "01/07/2025 01:30 PM"
 
-    accept_confirm(I18n.t(:label_recurring_occurrence_delete_confirmation)) do
-      show_page.cancel_occurrence date: "12/31/2024 01:30 PM"
+    show_page.cancel_occurrence date: "12/31/2024 01:30 PM"
+    show_page.within_modal "Cancel meeting occurrence" do
+      click_on "Cancel occurrence"
+    end
+
+    expect_flash(type: :success, message: "Successful cancellation.")
+
+    expect(page).to have_current_path(show_page.path)
+
+    show_page.expect_cancelled_meeting date: "12/31/2024 01:30 PM"
+    show_page.expect_cancelled_actions date: "12/31/2024 01:30 PM"
+  end
+
+  it "can edit the meeting series interval when created with working days (Regression #62089)" do
+    meeting.update!(frequency: "working_days")
+
+    show_page.visit!
+
+    show_page.edit_meeting_series
+    show_page.within_modal "Edit Meeting" do
+      page.select("Every day", from: "Frequency")
+      page.fill_in("Interval", with: "2")
+
+      sleep 0.5
+      click_link_or_button("Save")
     end
 
     wait_for_network_idle
-    show_page.expect_cancelled_meeting date: "12/31/2024 01:30 PM"
-    show_page.expect_cancelled_actions date: "12/31/2024 01:30 PM"
+    wait_for { meeting.reload.frequency }.to eq "daily"
+    wait_for { meeting.interval }.to eq 2
   end
 
   context "with view permissions only" do
@@ -169,7 +214,7 @@ RSpec.describe "Recurring meetings CRUD",
     it "does not allow to act on the recurring meeting" do
       show_page.visit!
 
-      expect(page).to have_no_content "Create from template"
+      expect(page).to have_no_button "Open"
       show_page.expect_open_meeting date: "12/31/2024 01:30 PM"
 
       within("li", text: "12/31/2024 01:30 PM") do
@@ -182,8 +227,8 @@ RSpec.describe "Recurring meetings CRUD",
         click_on "more-button"
       end
 
-      show_page.expect_scheduled_meeting date: "01/07/2025 01:30 PM"
-      show_page.expect_scheduled_meeting date: "01/14/2025 01:30 PM"
+      show_page.expect_planned_meeting date: "01/07/2025 01:30 PM"
+      show_page.expect_planned_meeting date: "01/14/2025 01:30 PM"
 
       expect(page).not_to have_test_selector "recurring-meeting-action-menu"
     end

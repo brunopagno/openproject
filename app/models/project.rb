@@ -93,6 +93,8 @@ class Project < ApplicationRecord
            inverse_of: :project,
            dependent: :destroy
 
+  has_many :recurring_meetings, dependent: :destroy
+
   accepts_nested_attributes_for :available_life_cycle_steps
   validates_associated :available_life_cycle_steps, on: :saving_life_cycle_steps
 
@@ -115,11 +117,11 @@ class Project < ApplicationRecord
   # This problem does not affect the contextless callbacks, they are always executed.
 
   def validation_context
-    case Array(@validation_context)
+    case Array(super)
     in [*, :saving_custom_fields, *] => context
       context << default_validation_context
     else
-      @validation_context
+      super
     end
   end
 

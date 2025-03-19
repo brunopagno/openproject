@@ -159,10 +159,6 @@ Date alerts in OpenProject are an [Enterprise add-on](#enterprise-add-on) and de
 
 In OpenProject, some features are defined as an Enterprise add-on. This means, they are not part of the [Community edition](#community-edition) and therefore not free of charge. Enterprise add-ons are available as [cloud](#cloud) or [on-premises](#on-premises) versions. You can choose from the following plans to get access to all Enterprise add-ons: Basic, Professional, Premium and Corporate. [Read more about OpenProject plans and pricing](https://www.openproject.org/pricing/).
 
-### Enumerations
-
-Enumerations in OpenProject is defined as a menu item in the admin settings that allows the configuration of Activities (for [time tracking](#time-and-costs)), [project status](#project-status) and work package priorities. [Read more about enumerations in OpenProject](../system-admin-guide/enumerations/).
-
 ### Excel synchronization
 
 Excel synchronization is an integration in OpenProject which allows you to easily import your issues from Excel to OpenProject or upload your work packages into an Excel spreadsheet. [See our video tutorials on how to work with the Excel synchronization integration](../system-admin-guide/integrations/excel-synchronization/).
@@ -228,11 +224,11 @@ Macros in OpenProject are dynamic shortcuts that help automate repetitive tasks.
 
 ### Meetings
 
-In OpenProject Software, Meetings is defined as a [module](#module) that allows the organization of meetings. The module has to be activated in the [project settings](#project-settings) by a project admin in order to be displayed in the side navigation. You can choose between classic meetings and dynamic meetings. Please note that only dynamic meetings will remain available in the long term. [See our user guide for more information on Meeting management in OpenProject](../user-guide/meetings/).
+OpenProject offers a Meetings [module](#module) that allows project members to organize and facilitate meetings. The module has to be activated in the [project settings](#project-settings) by a project admin in order to be displayed in the side navigation. You can choose between classic meetings, one-time meetings and recurring meetings. Please note that classic meetings will be deprecated in the long term. [See our user guide for more information on Meeting management in OpenProject](../user-guide/meetings/).
 
 ### Member
 
-In OpenProject Software, a member is defined as a single person in a project. Project members are added in the Members [module](#module) in the project menu.
+In OpenProject, a member is defined as a single person in a project. Project members are added in the Members [module](#module) in the project menu.
 
 ### Module
 

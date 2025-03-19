@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require "spec_helper"
 require_module_spec_helper
 
@@ -205,6 +206,33 @@ RSpec.describe RecurringMeeting,
       Timecop.freeze(Time.zone.tomorrow + 5.weeks) do
         expect(subject.next_occurrence).to be_nil
       end
+    end
+  end
+
+  describe "never ending meeting" do
+    subject do
+      build(:recurring_meeting,
+            start_time: Time.zone.tomorrow + 10.hours,
+            frequency: "daily",
+            end_after: "never")
+    end
+
+    it "schedules daily", :aggregate_failures do
+      expect(subject.first_occurrence).to eq Time.zone.tomorrow + 10.hours
+      expect(subject.remaining_occurrences).to be_nil
+      expect(subject.last_occurrence).to be_nil
+    end
+  end
+
+  describe "#upcoming_instantiated_meetings" do
+    let!(:recurring_meeting) { create(:recurring_meeting) }
+    let!(:ongoing_meeting) do
+      create(:scheduled_meeting, :persisted, start_time: 5.minutes.ago, recurring_meeting: recurring_meeting)
+    end
+    let!(:cancelled_meeting) { create(:scheduled_meeting, recurring_meeting: recurring_meeting, cancelled: true) }
+
+    it "returns only upcoming and not cancelled meetings" do
+      expect(recurring_meeting.upcoming_instantiated_meetings).to eq [ongoing_meeting]
     end
   end
 end

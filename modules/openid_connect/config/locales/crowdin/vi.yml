@@ -4,18 +4,18 @@ vi:
     description: "Thêm các nhà cung cấp chiến lược OmniAuth OpenID Connect vào OpenProject."
   logout_warning: >
     Bạn đã được đăng xuất. Nội dung của bất kỳ biểu mẫu nào bạn gửi có thể bị mất. Vui lòng [đăng nhập].
-  activemodel:
+  activerecord:
     attributes:
       openid_connect/provider:
-        name: Tên
+        name: Name
         slug: Unique identifier
-        display_name: Tên hiển thị
+        display_name: Display name
         client_id: Client ID
-        client_secret: Khóa bí mật người dùng
-        secret: Bí mật
-        scope: Phạm vi
-        grant_types_supported: Loại hỗ trợ
-        limit_self_registration: Giới hạn đăng ký tự động
+        client_secret: Client secret
+        secret: Secret
+        scope: Scope
+        grant_types_supported: Supported grant types
+        limit_self_registration: Limit self registration
         authorization_endpoint: Authorization endpoint
         userinfo_endpoint: User information endpoint
         token_endpoint: Token endpoint
@@ -29,19 +29,18 @@ vi:
         claims: Claims
         acr_values: ACR values
         redirect_url: Redirect URL
-  activerecord:
     errors:
       models:
         openid_connect/provider:
           attributes:
             metadata_url:
-              format: "Discovery endpoint URL %{message}"
-              response_is_not_successful: " responds with %{status}."
-              response_is_not_json: " does not return JSON body."
-              response_misses_required_attributes: " does not return required attributes. Missing attributes are: %{missing_attributes}."
+              format: "Khám phá URL điểm cuối %{message}"
+              response_is_not_successful: " phản hồi với %{status}."
+              response_is_not_json: " không trả về nội dung JSON."
+              response_misses_required_attributes: " không trả về thuộc tính cần có. Các thuộc tính bị thiếu là: %{missing_attributes}."
   provider:
     delete_warning:
-      input_delete_confirmation: Enter the provider name %{name} to confirm deletion.
+      input_delete_confirmation: Nhập tên nhà cung cấp %{name} để xác nhận xóa.
       irreversible_notice: Deleting an SSO provider is an irreversible action.
       provider: 'Are you sure you want to delete the SSO provider %{name}? To confirm this action please enter the name of the provider in the field below, this will:'
       delete_result_1: Remove the provider from the list of available providers.

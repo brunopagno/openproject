@@ -40,7 +40,7 @@ module Settings
         default: nil
       },
       after_login_default_redirect_url: {
-        description: "Override URL to which logged in users are redirected instead of the My page",
+        description: "Override URL to which logged in users are redirected instead of the Home page",
         format: :string,
         default: nil
       },
@@ -701,8 +701,8 @@ module Settings
         default: 60000
       },
       oauth_allow_remapping_of_existing_users: {
-        description: "When set to false, prevent users from other identity providers to take over accounts connected " \
-                     "to another identity provider.",
+        description: "When set to false, prevent users from other identity providers to take over accounts " \
+                     "that exist in OpenProject.",
         default: true
       },
       omniauth_direct_login_provider: {
@@ -962,6 +962,12 @@ module Settings
         default: nil,
         format: :hash,
         string_values: true
+      },
+      seed_enterprise_token: {
+        description: "Seed enterprise-edition token through ENV",
+        writable: false,
+        format: :string,
+        default: nil
       },
       self_registration: {
         default: 2

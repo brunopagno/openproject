@@ -40,17 +40,14 @@ class TimeEntriesController < ApplicationController
     before_action :load_and_authorize_optional_work_package
   end
 
-  before_action :load_or_build_and_authorize_time_entry, only: %i[dialog update destroy]
+  before_action :load_or_build_and_authorize_time_entry, only: %i[dialog update destroy refresh_form]
 
   authorization_checked! :dialog, :create, :update, :user_tz_caption, :refresh_form, :destroy
 
   def dialog
     @show_work_package = params[:work_package_id].blank?
-    @show_user = if @project
-                   User.current.allowed_in_project?(:log_time, @project)
-                 else
-                   User.current.allowed_in_any_project?(:log_time)
-                 end
+    @show_user = show_user_input_in_dialog
+    @limit_to_project_id = @project&.id
 
     @time_entry.spent_on ||= params[:date].presence || Time.zone.today
   end
@@ -72,7 +69,7 @@ class TimeEntriesController < ApplicationController
   def refresh_form
     call = TimeEntries::SetAttributesService.new(
       user: current_user,
-      model: TimeEntry.new,
+      model: @time_entry,
       contract_class: EmptyContract
     ).call(permitted_params.time_entries)
 
@@ -132,10 +129,21 @@ class TimeEntriesController < ApplicationController
 
   private
 
+  def show_user_input_in_dialog
+    return false if params[:onlyMe] == "true"
+
+    if @project
+      User.current.allowed_in_project?(:log_time, @project)
+    else
+      User.current.allowed_in_any_project?(:log_time)
+    end
+  end
+
   def form_config_options
     {
       show_user: params[:time_entry][:show_user] == "true",
-      show_work_package: params[:time_entry][:show_work_package] == "true"
+      show_work_package: params[:time_entry][:show_work_package] == "true",
+      limit_to_project_id: params[:time_entry][:limit_to_project_id].presence
     }
   end
 

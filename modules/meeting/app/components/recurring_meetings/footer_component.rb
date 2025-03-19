@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) the OpenProject GmbH
@@ -42,7 +43,14 @@ module RecurringMeetings
       @max_count = max_count
     end
 
+    def next_count
+      @current_count + PaginationHelper::SHOW_MORE_DEFAULT_INCREMENT
+    end
+
     def label
+      # If it never ends, don't try to count it
+      return endless_label if @meeting.end_after_never?
+
       count = @max_count - @current_count
       label_suffix = count == 1 ? "_singular" : ""
 
@@ -51,6 +59,10 @@ module RecurringMeetings
       else
         I18n.t("label_recurring_meeting_more#{label_suffix}", count:, schedule: @meeting.full_schedule_in_words)
       end
+    end
+
+    def endless_label
+      I18n.t("label_recurring_meeting_no_end_date", schedule: @meeting.full_schedule_in_words)
     end
   end
 end

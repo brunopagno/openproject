@@ -30,18 +30,21 @@
 
 module TimeEntries
   class WorkPackageForm < ApplicationForm
-    def initialize(visible: true)
+    def initialize(visible: true, limit_to_project_id: nil)
       super()
       @visible = visible
+      @limit_to_project_id = limit_to_project_id
     end
 
     form do |f|
       f.hidden name: :show_work_package, value: @visible
+      f.hidden name: :limit_to_project_id, value: @limit_to_project_id
 
       if show_work_package_field?
         f.work_package_autocompleter name: :work_package_id,
                                      label: TimeEntry.human_attribute_name(:work_package),
-                                     required: true,
+                                     required: work_package_required?,
+                                     validation_message: work_package_validation_error,
                                      autocomplete_options: {
                                        defaultData: false,
                                        component: "opce-time-entries-work-package-autocompleter",
@@ -49,6 +52,7 @@ module TimeEntries
                                        focusDirectly: false,
                                        append_to: "#time-entry-dialog",
                                        url: work_package_completer_url,
+                                       searchKey: "subjectOrId",
                                        filters: work_package_completer_filters
                                      }
       else
@@ -72,11 +76,29 @@ module TimeEntries
       end
     end
 
+    # When logging time from a project page or the work package page, the project id field is set in the background.
+    # When logging from the my page the project is only settable via the work package so in this case we need to make
+    # the WP field mandatory and get the error message from the project_id field and move it to the work_package_id field.
+    #
+    # We're still discussing if we make the work package mandatory, then this will become obsolete and
+    # probably be removed.
+    def work_package_required?
+      model.project.blank?
+    end
+
+    def work_package_validation_error
+      if model.errors[:project_id].present?
+        model.errors[:project_id].first
+      else
+        model.errors[:work_package]&.first
+      end
+    end
+
     def work_package_completer_filters
       filters = []
 
-      if model.project_id
-        filters << { name: "project_id", operator: "=", values: [model.project_id] }
+      if @limit_to_project_id
+        filters << { name: "project_id", operator: "=", values: [@limit_to_project_id] }
       end
 
       filters

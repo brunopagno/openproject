@@ -30,14 +30,15 @@
 
 module RecurringMeetings
   class ShowPageHeaderComponent < ApplicationComponent
+    include OpTurbo::Streamable
     include OpPrimer::ComponentHelpers
     include ApplicationHelper
 
-    def initialize(project: nil, meeting: nil)
+    def initialize(meeting: nil)
       super
 
-      @project = project
       @meeting = meeting
+      @project = meeting.project
     end
 
     def render_create_button?

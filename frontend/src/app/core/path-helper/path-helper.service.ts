@@ -304,6 +304,18 @@ export class PathHelperService {
     return `${this.workPackagePath(workPackageId)}/split_view/update_counter?counter=${counter}`;
   }
 
+  public workPackageGetRelationsCounterPath(workPackageId:string|number) {
+    return `${this.workPackagePath(workPackageId)}/split_view/get_relations_counter`;
+  }
+
+  public workPackageDatepickerDialogContentPath(workPackageId:string|number):string {
+    if (workPackageId === 'new') {
+      return `${this.workPackagePath(workPackageId)}/datepicker_dialog_content/new`;
+    }
+
+    return `${this.workPackagePath(workPackageId)}/datepicker_dialog_content`;
+  }
+
   // Work Package Bulk paths
 
   public workPackagesBulkEditPath() {

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) 2012-2024 the OpenProject GmbH
@@ -112,6 +113,8 @@ RSpec.describe "Structured meetings CRUD",
         end
 
         show_page.expect_section(title: "First section")
+        show_page.visit!
+        expect(page).to have_no_text I18n.t(:notice_meeting_updated)
       end
 
       # Expect notification in window1
@@ -151,6 +154,12 @@ RSpec.describe "Structured meetings CRUD",
 
         ## Close meeting
         find_test_selector("close-meeting-button").click
+        expect(page).to have_text "This meeting is in progress."
+        find_test_selector("close-meeting-button").click
+        expect(page).to have_text "This meeting is closed."
+
+        show_page.visit!
+        expect(page).to have_text "This meeting is closed."
       end
 
       # Expect notification in window1

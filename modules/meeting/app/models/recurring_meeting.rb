@@ -39,7 +39,7 @@ class RecurringMeeting < ApplicationRecord
   belongs_to :project
   belongs_to :author, class_name: "User"
 
-  validates_presence_of :start_time, :title, :frequency, :end_after
+  validates_presence_of :start_time, :title, :frequency, :end_after, :time_zone
   validates_presence_of :end_date, if: -> { end_after_specific_date? }
   validates_numericality_of :iterations,
                             only_integer: true,
@@ -56,19 +56,30 @@ class RecurringMeeting < ApplicationRecord
            if: -> { end_after_specific_date? }
 
   after_initialize :set_defaults
+
+  # Unset any previously set schedule before running validations
+  before_validation :unset_schedule
+
   after_save :unset_schedule
   before_destroy :remove_jobs
 
-  enum frequency: {
-    daily: 0,
-    working_days: 1,
-    weekly: 2
-  }.freeze, _prefix: true, _default: "weekly"
+  enum :frequency,
+       {
+         daily: 0,
+         working_days: 1,
+         weekly: 2
+       },
+       prefix: true,
+       default: "weekly"
 
-  enum end_after: {
-    specific_date: 0,
-    iterations: 1
-  }.freeze, _prefix: true, _default: "specific_date"
+  enum :end_after,
+       {
+         specific_date: 0,
+         iterations: 1,
+         never: 3
+       },
+       prefix: true,
+       default: "never"
 
   has_many :meetings,
            inverse_of: :recurring_meeting,
@@ -96,8 +107,21 @@ class RecurringMeeting < ApplicationRecord
     nil
   end
 
+  def will_end?
+    last_occurrence.present?
+  end
+
+  def has_ended?
+    will_end? && last_occurrence < Time.zone.now
+  end
+
   def human_frequency
-    I18n.t("recurring_meeting.frequency.#{frequency}")
+    case frequency
+    when "working_days"
+      I18n.t("recurring_meeting.frequency.working_days")
+    else
+      I18n.t("recurring_meeting.frequency.x_#{frequency}", count: interval)
+    end
   end
 
   def human_day_of_week
@@ -112,8 +136,17 @@ class RecurringMeeting < ApplicationRecord
     start_time.day.ordinalize
   end
 
+  def start_time
+    super&.in_time_zone(time_zone)
+  end
+
+  def time_zone
+    time_zone_string = super || Setting.user_default_timezone.presence || "Etc/UTC"
+    ActiveSupport::TimeZone[time_zone_string]
+  end
+
   def schedule
-    @schedule ||= IceCube::Schedule.new(start_time, end_time: modified_end_date).tap do |s|
+    @schedule ||= IceCube::Schedule.new(start_time, duration: template&.duration).tap do |s|
       s.add_recurrence_rule count_rule(frequency_rule)
       exclude_non_working_days(s) if frequency_working_days?
     end
@@ -138,11 +171,23 @@ class RecurringMeeting < ApplicationRecord
     end
   end
 
-  def full_schedule_in_words
-    I18n.t("recurring_meeting.in_words.full",
-           base: base_schedule,
-           time: format_time(start_time, include_date: false),
-           end_date: format_date(last_occurrence))
+  def full_schedule_in_words # rubocop:disable Metrics/AbcSize
+    time = "#{format_time(start_time, time_zone:, include_date: false)} (#{friendly_timezone_name(time_zone)})"
+    if has_ended?
+      I18n.t("recurring_meeting.in_words.full_past",
+             base: base_schedule,
+             time:,
+             end_date: format_date(last_occurrence))
+    elsif will_end?
+      I18n.t("recurring_meeting.in_words.full",
+             base: base_schedule,
+             time:,
+             end_date: format_date(last_occurrence))
+    else
+      I18n.t("recurring_meeting.in_words.never_ending",
+             base: base_schedule,
+             time:)
+    end
   end
 
   def human_frequency_schedule
@@ -151,26 +196,41 @@ class RecurringMeeting < ApplicationRecord
            time: format_time(start_time, include_date: false))
   end
 
+  def reschedule_required?(previous: false)
+    (previous ? previous_changes : changes)
+      .keys
+      .intersect?(%w[frequency start_date start_time start_time_hour iterations interval end_after end_date])
+  end
+
   def scheduled_occurrences(limit:)
     schedule.next_occurrences(limit, Time.current)
   end
 
   def first_occurrence
-    schedule.first
+    @first_occurrence ||= schedule.first
   end
 
   def last_occurrence
-    schedule.last
+    return if end_after_never?
+
+    @last_occurrence ||= schedule.last
   end
 
   def next_occurrence(from_time: Time.current)
-    schedule.next_occurrence(from_time)
+    schedule.next_occurrence(from_time)&.to_time
   end
 
+  def previous_occurrence(from_time: Time.current)
+    schedule.previous_occurrence(from_time)&.to_time
+  end
+
+  delegate :occurs_at?, to: :schedule
+
   def remaining_occurrences
-    if end_after_specific_date?
-      schedule.occurrences_between(Time.current, modified_end_date)
-    else
+    case end_after
+    when "specific_date"
+      schedule.occurrences_between(Time.current, end_date.to_time(:utc).end_of_day)
+    when "iterations"
       schedule.remaining_occurrences(Time.current)
     end
   end
@@ -186,15 +246,39 @@ class RecurringMeeting < ApplicationRecord
       .order(start_time: direction)
   end
 
+  def upcoming_instantiated_meetings
+    @upcoming_instantiated_meetings ||= scheduled_meetings
+      .includes(:meeting)
+      .not_cancelled
+      .joins(:meeting)
+      .where("meetings.start_time + (interval '1 hour' * meetings.duration) >= ?", Time.current)
+      .order(start_time: :asc)
+  end
+
+  def ongoing_meetings
+    upcoming_instantiated_meetings
+      .includes(:meeting)
+      .where(meetings: { start_time: ..Time.current })
+      .order(start_time: :asc)
+  end
+
+  def upcoming_cancelled_meetings
+    scheduled_meetings
+      .upcoming
+      .cancelled
+      .order(start_time: :asc)
+  end
+
+  def instantiated_meetings
+    meetings.not_templated
+  end
+
   private
 
   def unset_schedule
     @schedule = nil
-  end
-
-  # Because IceCube is exclusive by default for end_time for a schedule
-  def modified_end_date
-    @modified_end_date ||= end_date + 1.day
+    @first_occurence = nil
+    @last_occurrence = nil
   end
 
   def end_date_constraints
@@ -234,15 +318,18 @@ class RecurringMeeting < ApplicationRecord
   end
 
   def count_rule(rule)
-    if end_after_iterations?
+    case end_after
+    when "specific_date"
+      rule.until((end_date + 1.day).to_time(:utc))
+    when "iterations"
       rule.count(iterations)
     else
-      rule.until(modified_end_date.to_time(:utc))
+      rule
     end
   end
 
   def set_defaults
-    self.end_date ||= 1.year.from_now
+    self.end_date ||= 1.year.from_now if end_after_specific_date?
   end
 
   def remove_jobs

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) the OpenProject GmbH
@@ -34,8 +35,7 @@ require_relative "../../support/pages/recurring_meeting/show"
 require_relative "../../support/pages/meetings/index"
 
 RSpec.describe "Recurring meetings creation",
-               :js,
-               with_flag: { recurring_meetings: true } do
+               :js do
   include Components::Autocompleter::NgSelectAutocompleteHelpers
 
   shared_let(:project) { create(:project, enabled_module_names: %w[meetings]) }
@@ -86,8 +86,10 @@ RSpec.describe "Recurring meetings creation",
       meetings_page.set_starts_on "2024-12-31"
       meetings_page.set_start_time "13:30"
       meetings_page.set_duration "1.5"
+      meetings_page.set_end_after "a specific date"
       meetings_page.set_end_date "2025-01-15"
 
+      sleep 0.5 # quick fix as wait_for_network_idle isn't working all the time
       expect(page).to have_text "Every week on Tuesday at 01:30 PM"
 
       click_on "Create meeting"
@@ -117,23 +119,23 @@ RSpec.describe "Recurring meetings creation",
 
       expect(page).to have_css("#meetings-side-panel-participants-component", text: 2)
 
-      expect(page).to have_link("Finish template")
+      expect(page).to have_link("Open first meeting")
 
-      click_link_or_button "Finish template"
+      click_link_or_button "Open first meeting"
       wait_for_network_idle
 
       # Sends out an invitation to the series
-      perform_enqueued_jobs
-      expect(ActionMailer::Base.deliveries.size).to eq 2
-      title = ActionMailer::Base.deliveries.map(&:subject).uniq.first
-      expect(title).to eq "[#{project.name}] Meeting series Some title"
-
       show_page.visit!
       expect(page).to have_css(".start_time", count: 3)
 
       show_page.expect_open_meeting date: "12/31/2024 01:30 PM"
-      show_page.expect_scheduled_meeting date: "01/07/2025 01:30 PM"
-      show_page.expect_scheduled_meeting date: "01/14/2025 01:30 PM"
+      show_page.expect_planned_meeting date: "01/07/2025 01:30 PM"
+      show_page.expect_planned_meeting date: "01/14/2025 01:30 PM"
+
+      perform_enqueued_jobs
+      expect(ActionMailer::Base.deliveries.size).to eq 2
+      title = ActionMailer::Base.deliveries.map(&:subject).uniq.first
+      expect(title).to eq "[#{project.name}] Meeting series 'Some title'"
     end
   end
 

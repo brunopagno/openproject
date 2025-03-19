@@ -45,7 +45,7 @@ RSpec.describe "Admin lists project mappings for a storage",
   shared_let(:oauth_client_token) { create(:oauth_client_token, oauth_client: storage.oauth_client, user: admin) }
 
   shared_let(:remote_identity) do
-    create(:remote_identity, oauth_client: storage.oauth_client, user: admin, origin_user_id: "admin")
+    create(:remote_identity, auth_source: storage.oauth_client, integration: storage, user: admin, origin_user_id: "admin")
   end
 
   shared_let(:archived_project_project_storage) do
@@ -157,7 +157,7 @@ RSpec.describe "Admin lists project mappings for a storage",
         find(".ng-option-label", text: project.name).click
         check "Include sub-projects"
 
-        expect(page.find_by_id("storages_project_storage_project_folder_mode_automatic")).to be_checked
+        expect(page).to have_checked_field("storages_project_storage_project_folder_mode_automatic")
 
         click_on "Add"
       end
@@ -205,7 +205,8 @@ RSpec.describe "Admin lists project mappings for a storage",
             find(".ng-option-label", text: project.name).click
             check "Include sub-projects"
 
-            expect(page.find_by_id("storages_project_storage_project_folder_mode_automatic")).to be_checked
+            expect(page)
+              .to have_checked_field("storages_project_storage_project_folder_mode_automatic")
 
             choose "Existing folder with manually managed permissions"
             wait_for { page }.to have_text("No selected folder")
@@ -251,7 +252,8 @@ RSpec.describe "Admin lists project mappings for a storage",
               click_on "Add"
 
               expect(page).to have_text("Please select a folder.")
-              expect(page.find_by_id("storages_project_storage_project_folder_mode_manual")).to be_checked
+              expect(page)
+                .to have_checked_field("storages_project_storage_project_folder_mode_manual")
               expect(page).to have_text("No selected folder")
             end
           end
@@ -364,7 +366,7 @@ RSpec.describe "Admin lists project mappings for a storage",
         page.within("dialog") do
           expect(page).to have_text("Remove project from #{storage.name}")
           expect(page).to have_text("this storage has an automatically managed project folder")
-          click_on "Close"
+          click_on "Cancel"
         end
 
         expect(page).to have_text(project.name)
@@ -393,7 +395,7 @@ RSpec.describe "Admin lists project mappings for a storage",
         page.within("dialog") do
           expect(page).to have_button("Remove", disabled: true)
           Retryable.repeat_until_success do
-            check "Please, confirm you understand and want to remove this file storage from this project"
+            check "Please, confirm you understand and want to remove this file storage from this project", allow_label_click: true
             expect(page).to have_button("Remove", disabled: false) # ensure button is clickable
             click_on "Remove"
           end

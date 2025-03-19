@@ -45,7 +45,7 @@ RSpec.describe TimeEntry do
   end
   let(:user) { create(:user) }
   let(:user2) { create(:user) }
-  let(:date) { Date.today }
+  let(:date) { Time.zone.today }
   let(:rate) { build(:cost_rate) }
   let!(:hourly_one) { create(:hourly_rate, valid_from: 2.days.ago, project:, user:) }
   let!(:hourly_three) { create(:hourly_rate, valid_from: 4.days.ago, project:, user:) }
@@ -80,10 +80,16 @@ RSpec.describe TimeEntry do
   end
 
   def ensure_membership(project, user, permissions)
-    create(:member,
-           project:,
-           user:,
-           roles: [create(:project_role, permissions:)])
+    member = Member.find_by(principal: user, project: project)
+
+    if member
+      member.roles << create(:project_role, permissions:)
+    else
+      create(:member,
+             project:,
+             user:,
+             roles: [create(:project_role, permissions:)])
+    end
   end
 
   describe "#hours=" do
@@ -476,6 +482,23 @@ RSpec.describe TimeEntry do
 
           expect(time_entry).to be_valid
         end
+      end
+    end
+
+    describe "comments" do
+      it "allows blank values" do
+        time_entry.comments = ""
+        expect(time_entry).to be_valid
+      end
+
+      it "allows values with a length of 1000 characters" do
+        time_entry.comments = "a" * 1000
+        expect(time_entry).to be_valid
+      end
+
+      it "does not allow values with a length of >1000 characters" do
+        time_entry.comments = "a" * 1001
+        expect(time_entry).not_to be_valid
       end
     end
   end

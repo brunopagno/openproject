@@ -33,11 +33,12 @@ module Types
     class SubjectConfigurationFormModel
       extend ActiveModel::Naming
 
-      attr_reader :subject_configuration, :pattern, :validation_errors
+      attr_reader :subject_configuration, :pattern, :suggestions, :validation_errors
 
-      def initialize(subject_configuration:, pattern:, validation_errors: {})
+      def initialize(subject_configuration:, pattern:, suggestions:, validation_errors: {})
         @subject_configuration = subject_configuration
         @pattern = pattern
+        @suggestions = suggestions
         @validation_errors = validation_errors
       end
     end

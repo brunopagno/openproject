@@ -53,7 +53,6 @@ import { OpenprojectDashboardsModule } from 'core-app/features/dashboards/openpr
 import {
   OpenprojectWorkPackageGraphsModule,
 } from 'core-app/shared/components/work-package-graphs/openproject-work-package-graphs.module';
-import { HoverCardTriggerService } from 'core-app/core/setup/globals/global-listeners/hover-card-trigger.service';
 import { OpenprojectOverviewModule } from 'core-app/features/overview/openproject-overview.module';
 import { OpenprojectMyPageModule } from 'core-app/features/my-page/openproject-my-page.module';
 import { OpenprojectProjectsModule } from 'core-app/features/projects/openproject-projects.module';
@@ -76,7 +75,6 @@ import { DynamicContentModalComponent } from 'core-app/shared/components/modals/
 import {
   PasswordConfirmationModalComponent,
 } from 'core-app/shared/components/modals/request-for-confirmation/password-confirmation.modal';
-import { HoverCardComponent } from 'core-app/shared/components/modals/preview-modal/hover-card-modal/hover-card.modal';
 import {
   OpHeaderProjectSelectComponent,
 } from 'core-app/shared/components/header-project-select/header-project-select.component';
@@ -174,9 +172,6 @@ import { TimerAccountMenuComponent } from 'core-app/shared/components/time_entri
 import {
   RemoteFieldUpdaterComponent,
 } from 'core-app/shared/components/remote-field-updater/remote-field-updater.component';
-import {
-  OpModalSingleDatePickerComponent,
-} from 'core-app/shared/components/datepicker/modal-single-date-picker/modal-single-date-picker.component';
 import { SpotDropModalPortalComponent } from 'core-app/spot/components/drop-modal/drop-modal-portal.component';
 import { OpModalOverlayComponent } from 'core-app/shared/components/modal/modal-overlay.component';
 import {
@@ -237,10 +232,10 @@ import { CurrentProjectService } from 'core-app/core/current-project/current-pro
 import {
   TimeEntriesWorkPackageAutocompleterComponent,
 } from 'core-app/shared/components/autocompleter/time-entries-work-package-autocompleter/time-entries-work-package-autocompleter.component';
+import { OpWpModalDatePickerComponent } from 'core-app/shared/components/datepicker/wp-modal-date-picker/wp-modal-date-picker.component';
 
 export function initializeServices(injector:Injector) {
   return () => {
-    const PreviewTrigger = injector.get(HoverCardTriggerService);
     const topMenuService = injector.get(TopMenuService);
     const keyboardShortcuts = injector.get(KeyboardShortcutService);
     const contextMenu = injector.get(OPContextMenuService);
@@ -250,13 +245,11 @@ export function initializeServices(injector:Injector) {
     injector.get(RevitAddInSettingsButtonService);
 
     topMenuService.register();
-    PreviewTrigger.setupListener();
     contextMenu.register();
 
     // Re-register on turbo:load
     document.addEventListener('turbo:load', () => {
       topMenuService.register();
-      PreviewTrigger.setupListener();
       contextMenu.register();
       currentProject.detect();
     });
@@ -381,7 +374,6 @@ export function initializeServices(injector:Injector) {
     ConfirmDialogModalComponent,
     DynamicContentModalComponent,
     PasswordConfirmationModalComponent,
-    HoverCardComponent,
 
     // Main menu
     MainMenuResizerComponent,
@@ -421,7 +413,7 @@ export class OpenProjectModule implements DoBootstrap {
   private registerCustomElements(injector:Injector) {
     registerCustomElement('opce-macro-embedded-table', EmbeddedTablesMacroComponent, { injector });
     registerCustomElement('opce-principal', OpPrincipalComponent, { injector });
-    registerCustomElement('opce-single-date-picker', OpBasicSingleDatePickerComponent, { injector });
+    registerCustomElement('opce-basic-single-date-picker', OpBasicSingleDatePickerComponent, { injector });
     registerCustomElement('opce-range-date-picker', OpBasicRangeDatePickerComponent, { injector });
     registerCustomElement('opce-global-search', GlobalSearchInputComponent, { injector });
     registerCustomElement('opce-autocompleter', OpAutocompleterComponent, { injector });
@@ -453,8 +445,7 @@ export class OpenProjectModule implements DoBootstrap {
     registerCustomElement('opce-wp-split-view', WorkPackageSplitViewEntryComponent, { injector });
     registerCustomElement('opce-timer-account-menu', TimerAccountMenuComponent, { injector });
     registerCustomElement('opce-remote-field-updater', RemoteFieldUpdaterComponent, { injector });
-    registerCustomElement('opce-modal-single-date-picker', OpModalSingleDatePickerComponent, { injector });
-    registerCustomElement('opce-basic-single-date-picker', OpBasicSingleDatePickerComponent, { injector });
+    registerCustomElement('opce-wp-modal-date-picker', OpWpModalDatePickerComponent, { injector });
     registerCustomElement('opce-spot-drop-modal-portal', SpotDropModalPortalComponent, { injector });
     registerCustomElement('opce-spot-switch', SpotSwitchComponent, { injector });
     registerCustomElement('opce-modal-overlay', OpModalOverlayComponent, { injector });
